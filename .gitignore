@@ -1,0 +1,26 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno
+.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Cobertura y temporales
+coverage/
+.nyc_output/
+
+# Archivos del sistema/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Subidas
+uploads/
+
+# Opcional: mantener la carpeta uploads en Git vacía
+# !uploads/.gitkeep
