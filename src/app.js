@@ -9,16 +9,13 @@ import AppError from './utils/AppError.js';
 
 const app = express();
 
-// Seguridad general
 app.use(helmet());
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 app.use(cors());
 
-// Parsers
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Sanitización NoSQL
 app.use(
   expressMongoSanitize({
     mode: 'auto',
@@ -26,18 +23,18 @@ app.use(
   })
 );
 
-// Estáticos
 app.use('/uploads', express.static('uploads'));
 
-// Rutas
 app.use('/api/user', userRoutes);
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
 
-// 404
-app.use('/{*splat}', (req, res, next) => {
+app.use('/{*splat}', (req, _res, next) => {
   next(AppError.notFound(`Ruta ${req.originalUrl} no encontrada`));
 });
 
-// Errores
 app.use(errorHandler);
 
 export default app;

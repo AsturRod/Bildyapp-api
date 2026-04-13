@@ -17,7 +17,13 @@ export const authMiddleware = async (req, res, next) => {
       return next(AppError.unauthorized('Formato de token no válido'));
     }
 
-    const decoded = jwt.verify(token, config.jwt.accessSecret);
+    let decoded;
+
+    try {
+      decoded = jwt.verify(token, config.jwt.accessSecret);
+    } catch (error) {
+      return next(AppError.unauthorized('Token inválido o expirado'));
+    }
 
     const user = await User.findById(decoded.id);
 

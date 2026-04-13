@@ -1,3 +1,4 @@
+import AppError from '../utils/AppError.js';
 import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -28,7 +29,7 @@ const fileFilter = (_req, file, cb) => {
     if(file.mimetype.startsWith('image/')) {
         return cb(null, true);
     }
-    return cb(new Error('Solo se permiten archivos de imagen'));
+    return cb(new AppError.badRequest('Solo se permiten archivos de imagen'), false);
 };
 
 const upload = multer({

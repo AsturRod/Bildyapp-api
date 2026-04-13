@@ -1,14 +1,10 @@
 import express from 'express';
-import multer from 'multer';
 import {
-  //  Ya tienes
   register,
-  validateEmail, 
+  validateEmail,
   login,
-  
-  // FALTAN implementar
   getUser,
-  updatePersonalData, 
+  updatePersonalData,
   updateCompany,
   uploadLogo,
   refreshToken,
@@ -18,60 +14,39 @@ import {
   inviteUser
 } from '../controllers/user.controller.js';
 
-import { 
-  // Ya tienes
-  validate,
-  
-  // FALTA roleMiddleware
-  authMiddleware,
-  roleMiddleware 
-} from '../middleware/auth.middleware.js';
+import { validate } from '../middleware/validate.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
+import roleMiddleware from '../middleware/role.middleware.js';
+import upload from '../middleware/upload.js';
 
-//  FALTAN esquemas Zod
 import {
   registerSchema,
   validationCodeSchema,
   loginSchema,
-  
-  //  FALTAN
   personalDataSchema,
   companySchema,
   refreshSchema,
-  passwordSchema,
-  inviteSchema
+  passwordUpdateSchema,
+  inviteSchema,
+  deleteUserSchema
 } from '../validators/user.validator.js';
-
-//  Multer para logo
-const upload = multer({
-  dest: 'uploads/',
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Solo imágenes'), false);
-    }
-  }
-});
 
 const router = express.Router();
 
-//  YA FUNCIONAN (1 punto cada uno)
 router.post('/register', validate(registerSchema), register);
 router.put('/validation', authMiddleware, validate(validationCodeSchema), validateEmail);
 router.post('/login', validate(loginSchema), login);
 
-// FALTAN 
-router.get('/', authMiddleware, getUser);                                    // populate + fullName
-router.put('/register', authMiddleware, validate(personalDataSchema), updatePersonalData);  // datos personales
-router.patch('/company', authMiddleware, validate(companySchema), updateCompany);            // CIF + isFreelance
-router.patch('/logo', authMiddleware, upload.single('logo'), uploadLogo);                    // multer
+router.get('/', authMiddleware, getUser);
+router.put('/register', authMiddleware, validate(personalDataSchema), updatePersonalData);
+router.patch('/company', authMiddleware, validate(companySchema), updateCompany);
+router.patch('/logo', authMiddleware, upload.single('logo'), uploadLogo);
 
-router.post('/refresh', validate(refreshSchema), refreshToken);      // JWT refresh
-router.post('/logout', authMiddleware, logout);                      // invalida refresh
+router.post('/refresh', validate(refreshSchema), refreshToken);
+router.post('/logout', authMiddleware, logout);
 
-router.delete('/', authMiddleware, deleteUser);                      // soft/hard delete
-router.put('/password', authMiddleware, validate(passwordSchema), changePassword);  // bonus 0.5
-router.post('/invite', authMiddleware, roleMiddleware('admin'), validate(inviteSchema), inviteUser);  // 1 punto
+router.delete('/', authMiddleware, validate(deleteUserSchema), deleteUser);
+router.put('/password', authMiddleware, validate(passwordUpdateSchema), changePassword);
+router.post('/invite', authMiddleware, roleMiddleware('admin'), validate(inviteSchema), inviteUser);
 
 export default router;

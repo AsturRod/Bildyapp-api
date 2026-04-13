@@ -5,7 +5,7 @@ class NotificationService extends EventEmitter {}
 const notificationService = new NotificationService();
 
 notificationService.on('userregistered', (user) => {
-  console.log(`[event] userregistered -> ${user.email}`);
+  console.log(`[event] userregistered -> ${user?.email ?? 'unknown'}`);
 });
 
 notificationService.on('userverified', (user) => {

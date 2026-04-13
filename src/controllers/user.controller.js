@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import Company from '../models/Company.js';
 import config from '../config/index.js';
 import AppError from '../utils/AppError.js';
 import notificationService from '../services/notification.service.js';
@@ -25,12 +26,23 @@ const generateVerificationCode = () => {
   return String(Math.floor(100000 + Math.random() * 900000));
 };
 
+const normalizeCompany = (company) => {
+  if (!company || typeof company === 'string') return null;
+  if (company._id) return company;
+  return null;
+};
+
 const buildAuthResponse = (user) => {
   return {
     user: {
+      id: user._id,
       email: user.email,
+      name: user.name ?? null,
+      lastName: user.lastName ?? null,
+      fullName: user.fullName ?? null,
       status: user.status,
       role: user.role,
+      company: normalizeCompany(user.company),
     },
     accessToken: generateAccessToken(user),
     refreshToken: generateRefreshToken(user),
@@ -51,14 +63,32 @@ export const register = async (req, res, next) => {
       return next(AppError.conflict('Ya existe un usuario validado con ese email'));
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const existingPendingUser = await User.findOne({
+      email,
+      status: 'pending',
+      deleted: false,
+    }).select('+password');
+
     const verificationCode = generateVerificationCode();
+
+    if (existingPendingUser) {
+      existingPendingUser.password = password;
+      existingPendingUser.verificationCode = verificationCode;
+      existingPendingUser.verificationAttempts = 3;
+      await existingPendingUser.save();
+
+      notificationService.emit('userregistered', existingPendingUser);
+
+      return res.status(201).json(buildAuthResponse(existingPendingUser));
+    }
 
     const user = await User.create({
       email,
-      password: hashedPassword,
+      password,
       verificationCode,
       verificationAttempts: 3,
+      role: 'admin',
+      status: 'pending',
     });
 
     notificationService.emit('userregistered', user);
@@ -129,7 +159,312 @@ export const login = async (req, res, next) => {
       return next(AppError.unauthorized('Credenciales incorrectas'));
     }
 
+    if (user.status !== 'verified') {
+      return next(AppError.forbidden('Debes verificar tu email antes de iniciar sesión'));
+    }
+
     return res.status(200).json(buildAuthResponse(user));
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id)
+      .populate('company')
+      .select('-password -verificationCode -verificationAttempts');
+
+    if (!user || user.deleted) {
+      return next(AppError.notFound('Usuario no encontrado'));
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: user,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const updatePersonalData = async (req, res, next) => {
+  try {
+    const { name, lastName, nif } = req.validated.body;
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { name, lastName, nif },
+      { new: true, runValidators: true }
+    ).populate('company');
+
+    if (!user || user.deleted) {
+      return next(AppError.notFound('Usuario no encontrado'));
+    }
+
+    return res.status(200).json({
+      message: 'Datos personales actualizados correctamente',
+      data: user,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const updateCompany = async (req, res, next) => {
+  try {
+    const { name, cif, address, isFreelance } = req.validated.body;
+
+    const user = await User.findById(req.user.id);
+
+    if (!user || user.deleted) {
+      return next(AppError.notFound('Usuario no encontrado'));
+    }
+
+    if (user.status !== 'verified') {
+      return next(AppError.forbidden('Debes verificar tu email antes de continuar'));
+    }
+
+    let company;
+
+    if (isFreelance) {
+      if (!user.nif) {
+        return next(AppError.badRequest('El usuario debe tener NIF para crear una compañía como autónomo'));
+      }
+
+      company = await Company.findOne({ cif: user.nif, deleted: false });
+
+      if (!company) {
+        company = await Company.create({
+          owner: user._id,
+          name: `${user.name || ''} ${user.lastName || ''}`.trim() || name,
+          cif: user.nif,
+          address,
+          isFreelance: true,
+          deleted: false,
+        });
+      }
+
+      user.company = company._id;
+      user.role = 'admin';
+      await user.save();
+    } else {
+      company = await Company.findOne({ cif, deleted: false });
+
+      if (!company) {
+        company = await Company.create({
+          owner: user._id,
+          name,
+          cif,
+          address,
+          isFreelance: false,
+          deleted: false,
+        });
+
+        user.company = company._id;
+        user.role = 'admin';
+        await user.save();
+      } else {
+        user.company = company._id;
+        user.role = 'guest';
+        await user.save();
+      }
+    }
+
+    const updatedUser = await User.findById(user._id)
+      .populate('company')
+      .select('-password -verificationCode -verificationAttempts');
+
+    return res.status(200).json({
+      message: 'Compañía asignada correctamente',
+      data: updatedUser,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const uploadLogo = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return next(AppError.badRequest('Debes subir una imagen'));
+    }
+
+    const user = await User.findById(req.user.id);
+
+    if (!user || user.deleted) {
+      return next(AppError.notFound('Usuario no encontrado'));
+    }
+
+    if (!user.company) {
+      return next(AppError.badRequest('El usuario no tiene una compañía asociada'));
+    }
+
+    const company = await Company.findById(user.company);
+
+    if (!company || company.deleted) {
+      return next(AppError.notFound('Compañía no encontrada'));
+    }
+
+    company.logo = `/uploads/${req.file.filename}`;
+    await company.save();
+
+    return res.status(200).json({
+      message: 'Logo subido correctamente',
+      data: company,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const refreshToken = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.validated.body;
+
+    if (!refreshToken) {
+      return next(AppError.badRequest('Refresh token requerido'));
+    }
+
+    const decoded = jwt.verify(refreshToken, config.jwt.refreshSecret);
+
+    const user = await User.findById(decoded.id);
+
+    if (!user || user.deleted) {
+      return next(AppError.unauthorized('Refresh token inválido'));
+    }
+
+    const newAccessToken = generateAccessToken(user);
+    const newRefreshToken = generateRefreshToken(user);
+
+    return res.status(200).json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
+  } catch (error) {
+    return next(AppError.unauthorized('Refresh token inválido o expirado'));
+  }
+};
+
+export const logout = async (req, res, next) => {
+  try {
+    return res.status(200).json({
+      message: 'Logout realizado correctamente',
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const deleteUser = async (req, res, next) => {
+  try {
+    const { soft } = req.query;
+
+    const user = await User.findById(req.user.id);
+
+    if (!user || user.deleted) {
+      return next(AppError.notFound('Usuario no encontrado'));
+    }
+
+    if (soft === 'true') {
+      user.deleted = true;
+      await user.save();
+
+      notificationService.emit('userdeleted', user);
+
+      return res.status(200).json({
+        message: 'Usuario eliminado lógicamente',
+      });
+    }
+
+    await User.findByIdAndDelete(req.user.id);
+
+    notificationService.emit('userdeleted', user);
+
+    return res.status(200).json({
+      message: 'Usuario eliminado definitivamente',
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.validated.body;
+
+    const user = await User.findById(req.user.id).select('+password');
+
+    if (!user || user.deleted) {
+      return next(AppError.notFound('Usuario no encontrado'));
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+
+    if (!isCurrentPasswordValid) {
+      return next(AppError.unauthorized('La contraseña actual no es correcta'));
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    return res.status(200).json({
+      message: 'Contraseña actualizada correctamente',
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const inviteUser = async (req, res, next) => {
+  try {
+    const { email, password, name, lastName, nif } = req.validated.body;
+
+    const inviter = await User.findById(req.user.id);
+
+    if (!inviter || inviter.deleted) {
+      return next(AppError.notFound('Usuario invitador no encontrado'));
+    }
+
+    if (inviter.role !== 'admin') {
+      return next(AppError.forbidden('No tienes permisos para invitar usuarios'));
+    }
+
+    if (!inviter.company) {
+      return next(AppError.badRequest('El usuario no tiene compañía asociada'));
+    }
+
+    const existingUser = await User.findOne({ email, deleted: false });
+
+    if (existingUser) {
+      return next(AppError.conflict('Ya existe un usuario con ese email'));
+    }
+
+    const invitedUser = await User.create({
+      email,
+      password,
+      name,
+      lastName,
+      nif,
+      role: 'guest',
+      status: 'pending',
+      company: inviter.company,
+      verificationCode: generateVerificationCode(),
+      verificationAttempts: 3,
+    });
+
+    notificationService.emit('userinvited', invitedUser);
+
+    return res.status(201).json({
+      message: 'Usuario invitado correctamente',
+      data: {
+        id: invitedUser._id,
+        email: invitedUser.email,
+        role: invitedUser.role,
+        status: invitedUser.status,
+        company: invitedUser.company,
+      },
+    });
   } catch (error) {
     return next(error);
   }
