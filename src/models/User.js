@@ -67,7 +67,7 @@ const userSchema = new mongoose.Schema(
             default:'pending',
             index:true,
         },
-        verifationCode:{
+        verificationCode:{
             type:String,
             default:null,
         },

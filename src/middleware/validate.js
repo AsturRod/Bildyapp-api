@@ -1,6 +1,6 @@
-import AppError from "../utils/AppError";
+import AppError from "../utils/AppError.js";
 
-const validate = (schema) => {
+export const validate = (schema) => {
     return (req, res, next) => {
         const result = schema.safeParse({
             body: req.body,
@@ -19,4 +19,3 @@ const validate = (schema) => {
     };
 };
 
-export default validate;

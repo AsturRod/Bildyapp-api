@@ -8,3 +8,5 @@ const config = {
         refreshExpiration: process.env.JWT_REFRESH_EXPIRATION || '7d',
     },
 };
+
+export default config;

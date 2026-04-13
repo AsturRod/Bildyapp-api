@@ -3,7 +3,7 @@ import User from '../models/User.js';
 import config from '../config/index.js';
 import AppError from '../utils/AppError.js';
 
-const authMiddleware = async (req, res, next) => {
+export const authMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -31,5 +31,3 @@ const authMiddleware = async (req, res, next) => {
     return next(error);
   }
 };
-
-export default authMiddleware;

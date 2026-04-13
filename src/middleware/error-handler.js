@@ -1,4 +1,4 @@
-const errorHandler = (err, req, res, next) => {
+export const errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode || 500;
   let status = err.status || 'error';
   let message = err.message || 'Error interno del servidor';
@@ -38,4 +38,3 @@ const errorHandler = (err, req, res, next) => {
   });
 };
 
-export default errorHandler;
