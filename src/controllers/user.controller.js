@@ -22,6 +22,16 @@ const generateRefreshToken = (user) => {
   );
 };
 
+const issueTokensForUser = async (user) => {
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
+
+  user.refreshToken = refreshToken;
+  await user.save({ validateBeforeSave: false });
+
+  return { accessToken, refreshToken };
+};
+
 const generateVerificationCode = () => {
   return String(Math.floor(100000 + Math.random() * 900000));
 };
@@ -32,7 +42,7 @@ const normalizeCompany = (company) => {
   return null;
 };
 
-const buildAuthResponse = (user) => {
+const buildAuthResponse = (user, tokens) => {
   return {
     user: {
       id: user._id,
@@ -44,8 +54,8 @@ const buildAuthResponse = (user) => {
       role: user.role,
       company: normalizeCompany(user.company),
     },
-    accessToken: generateAccessToken(user),
-    refreshToken: generateRefreshToken(user),
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
   };
 };
 
@@ -76,10 +86,11 @@ export const register = async (req, res, next) => {
       existingPendingUser.verificationCode = verificationCode;
       existingPendingUser.verificationAttempts = 3;
       await existingPendingUser.save();
+      const tokens = await issueTokensForUser(existingPendingUser);
 
-      notificationService.emit('userregistered', existingPendingUser);
+      notificationService.emit('user:registered', existingPendingUser);
 
-      return res.status(201).json(buildAuthResponse(existingPendingUser));
+      return res.status(201).json(buildAuthResponse(existingPendingUser, tokens));
     }
 
     const user = await User.create({
@@ -90,10 +101,11 @@ export const register = async (req, res, next) => {
       role: 'admin',
       status: 'pending',
     });
+    const tokens = await issueTokensForUser(user);
 
-    notificationService.emit('userregistered', user);
+    notificationService.emit('user:registered', user);
 
-    return res.status(201).json(buildAuthResponse(user));
+    return res.status(201).json(buildAuthResponse(user, tokens));
   } catch (error) {
     return next(error);
   }
@@ -102,7 +114,11 @@ export const register = async (req, res, next) => {
 export const validateEmail = async (req, res, next) => {
   try {
     const { code } = req.validated.body;
-    const user = req.user;
+    const user = await User.findById(req.user.id).select('+verificationCode +verificationAttempts');
+
+    if (!user || user.deleted) {
+      return next(AppError.notFound('Usuario no encontrado'));
+    }
 
     if (user.status === 'verified') {
       return res.status(200).json({
@@ -130,7 +146,7 @@ export const validateEmail = async (req, res, next) => {
     user.verificationAttempts = 0;
     await user.save();
 
-    notificationService.emit('userverified', user);
+    notificationService.emit('user:verified', user);
 
     return res.status(200).json({
       message: 'Email validado correctamente',
@@ -163,7 +179,9 @@ export const login = async (req, res, next) => {
       return next(AppError.forbidden('Debes verificar tu email antes de iniciar sesión'));
     }
 
-    return res.status(200).json(buildAuthResponse(user));
+    const tokens = await issueTokensForUser(user);
+
+    return res.status(200).json(buildAuthResponse(user, tokens));
   } catch (error) {
     return next(error);
   }
@@ -320,26 +338,29 @@ export const uploadLogo = async (req, res, next) => {
 
 export const refreshToken = async (req, res, next) => {
   try {
-    const { refreshToken } = req.validated.body;
+    const { refreshToken: providedRefreshToken } = req.validated.body;
 
-    if (!refreshToken) {
+    if (!providedRefreshToken) {
       return next(AppError.badRequest('Refresh token requerido'));
     }
 
-    const decoded = jwt.verify(refreshToken, config.jwt.refreshSecret);
+    const decoded = jwt.verify(providedRefreshToken, config.jwt.refreshSecret);
 
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id).select('+refreshToken');
 
     if (!user || user.deleted) {
       return next(AppError.unauthorized('Refresh token inválido'));
     }
 
-    const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = generateRefreshToken(user);
+    if (!user.refreshToken || user.refreshToken !== providedRefreshToken) {
+      return next(AppError.unauthorized('Refresh token inválido'));
+    }
+
+    const tokens = await issueTokensForUser(user);
 
     return res.status(200).json({
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     });
   } catch (error) {
     return next(AppError.unauthorized('Refresh token inválido o expirado'));
@@ -348,6 +369,8 @@ export const refreshToken = async (req, res, next) => {
 
 export const logout = async (req, res, next) => {
   try {
+    await User.findByIdAndUpdate(req.user.id, { refreshToken: null });
+
     return res.status(200).json({
       message: 'Logout realizado correctamente',
     });
@@ -370,7 +393,7 @@ export const deleteUser = async (req, res, next) => {
       user.deleted = true;
       await user.save();
 
-      notificationService.emit('userdeleted', user);
+      notificationService.emit('user:deleted', user);
 
       return res.status(200).json({
         message: 'Usuario eliminado lógicamente',
@@ -379,7 +402,7 @@ export const deleteUser = async (req, res, next) => {
 
     await User.findByIdAndDelete(req.user.id);
 
-    notificationService.emit('userdeleted', user);
+    notificationService.emit('user:deleted', user);
 
     return res.status(200).json({
       message: 'Usuario eliminado definitivamente',
@@ -453,7 +476,7 @@ export const inviteUser = async (req, res, next) => {
       verificationAttempts: 3,
     });
 
-    notificationService.emit('userinvited', invitedUser);
+    notificationService.emit('user:invited', invitedUser);
 
     return res.status(201).json({
       message: 'Usuario invitado correctamente',

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import bcrypt from 'bcrypt'; 
+import bcrypt from 'bcryptjs';
 
 const addressSchema = new mongoose.Schema(
   {
@@ -44,10 +44,17 @@ const userSchema = new mongoose.Schema(
     verificationCode: {
       type: String,
       default: null,
+      select: false,
     },
     verificationAttempts: {
       type: Number,
       default: 3,
+      select: false,
+    },
+    refreshToken: {
+      type: String,
+      default: null,
+      select: false,
     },
     company: {
       type: mongoose.Schema.Types.ObjectId,
@@ -66,33 +73,28 @@ const userSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true }, 
+    toJSON: { virtuals: true },
     toObject: { virtuals: true },
   }
 );
 
-//VIRTUAL fullName 
 userSchema.virtual("fullName").get(function () {
   return `${this.name || ""} ${this.lastName || ""}`.trim();
 });
 
-//INDEXES OBLIGATORIOS
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ company: 1, status: 1, role: 1 });
 userSchema.index({ company: 1, deleted: 1 });
 
-// HASH PASSWORD pre-save
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) return;
   this.password = await bcrypt.hash(this.password, 12);
 });
 
-// SOFT DELETE 
-userSchema.pre(/^find/, function () {  
+userSchema.pre(/^find/, function () {
   this.where({ deleted: { $ne: true } });
 });
 
-//Compare password method para login
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };

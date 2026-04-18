@@ -1,11 +1,4 @@
 export const errorHandler = (err, _req, res, _next) => {
-
-  console.error('ERROR CAPTURADO:');
-  console.error('Message:', err.message);
-  console.error('StatusCode:', err.statusCode);
-  console.error('Name:', err.name);
-  console.error('Stack:', err.stack);
-  console.error('==============================');
   let statusCode = err.statusCode || 500;
   let status = err.status || 'error';
   let message = err.message || 'Error interno del servidor';

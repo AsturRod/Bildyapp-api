@@ -26,10 +26,6 @@ app.use(
 app.use('/uploads', express.static('uploads'));
 
 app.use('/api/user', userRoutes);
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`);
-  next();
-});
 
 app.use('/{*splat}', (req, _res, next) => {
   next(AppError.notFound(`Ruta ${req.originalUrl} no encontrada`));
