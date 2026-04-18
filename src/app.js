@@ -4,6 +4,7 @@ import rateLimit from 'express-rate-limit';
 import expressMongoSanitize from '@exortek/express-mongo-sanitize';
 import cors from 'cors';
 import userRoutes from './routes/user.routes.js';
+import clientRoutes from './routes/client.routes.js';
 import { errorHandler } from './middleware/error-handler.js';
 import AppError from './utils/AppError.js';
 
@@ -26,6 +27,7 @@ app.use(
 app.use('/uploads', express.static('uploads'));
 
 app.use('/api/user', userRoutes);
+app.use('/api/client', clientRoutes);
 
 app.use('/{*splat}', (req, _res, next) => {
   next(AppError.notFound(`Ruta ${req.originalUrl} no encontrada`));
