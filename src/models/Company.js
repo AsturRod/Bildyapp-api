@@ -70,7 +70,7 @@ const companySchema = new mongoose.Schema(
   }
 );
 
-// Soft delete: excluir compañías borradas en queries normales
+
 companySchema.pre(/^find/, function () {
   this.where({ deleted: { $ne: true } });
 });
