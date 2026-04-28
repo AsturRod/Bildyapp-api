@@ -46,9 +46,24 @@ const userSchema = new mongoose.Schema(
       default: null,
       select: false,
     },
+    verificationCodeSentAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
     verificationAttempts: {
       type: Number,
       default: 3,
+      select: false,
+    },
+    verificationResendWindowStart: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+    verificationResendCount: {
+      type: Number,
+      default: 0,
       select: false,
     },
     refreshToken: {

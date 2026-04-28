@@ -11,7 +11,8 @@ import {
   logout,
   deleteUser,
   changePassword,
-  inviteUser
+  inviteUser,
+  resendValidationCode,
 } from '../controllers/user.controller.js';
 
 import { validate } from '../middleware/validate.js';
@@ -22,6 +23,7 @@ import upload from '../middleware/upload.js';
 import {
   registerSchema,
   validationCodeSchema,
+  resendValidationCodeSchema,
   loginSchema,
   personalDataSchema,
   companySchema,
@@ -35,6 +37,7 @@ const router = express.Router();
 
 router.post('/register', validate(registerSchema), register);
 router.put('/validation', authMiddleware, validate(validationCodeSchema), validateEmail);
+router.post('/validation/resend', validate(resendValidationCodeSchema), resendValidationCode);
 router.post('/login', validate(loginSchema), login);
 
 router.get('/', authMiddleware, getUser);

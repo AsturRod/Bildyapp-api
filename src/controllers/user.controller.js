@@ -77,20 +77,16 @@ export const register = async (req, res, next) => {
       email,
       status: 'pending',
       deleted: false,
-    }).select('+password');
+    });
 
     const verificationCode = generateVerificationCode();
 
     if (existingPendingUser) {
-      existingPendingUser.password = password;
-      existingPendingUser.verificationCode = verificationCode;
-      existingPendingUser.verificationAttempts = 3;
-      await existingPendingUser.save();
-      const tokens = await issueTokensForUser(existingPendingUser);
-
-      notificationService.emit('user:registered', existingPendingUser);
-
-      return res.status(201).json(buildAuthResponse(existingPendingUser, tokens));
+      return next(
+        AppError.conflict(
+          'Ya existe un registro pendiente con ese email. Solicita reenvío del código de validación.'
+        )
+      );
     }
 
     const user = await User.create({
@@ -98,6 +94,9 @@ export const register = async (req, res, next) => {
       password,
       verificationCode,
       verificationAttempts: 3,
+      verificationCodeSentAt: new Date(),
+      verificationResendWindowStart: new Date(),
+      verificationResendCount: 0,
       role: 'admin',
       status: 'pending',
     });
@@ -106,6 +105,66 @@ export const register = async (req, res, next) => {
     notificationService.emit('user:registered', user);
 
     return res.status(201).json(buildAuthResponse(user, tokens));
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const resendValidationCode = async (req, res, next) => {
+  try {
+    const { email } = req.validated.body;
+
+    const user = await User.findOne({
+      email,
+      deleted: false,
+    }).select(
+      '+verificationCode +verificationAttempts +verificationCodeSentAt +verificationResendWindowStart +verificationResendCount'
+    );
+
+    if (!user) {
+      return next(AppError.notFound('No existe un usuario con ese email'));
+    }
+
+    if (user.status === 'verified') {
+      return next(AppError.badRequest('El usuario ya está verificado'));
+    }
+
+    const now = Date.now();
+    const COOLDOWN_MS = 60 * 1000;
+    const WINDOW_MS = 60 * 60 * 1000;
+    const MAX_RESENDS_PER_WINDOW = 5;
+
+    if (
+      user.verificationCodeSentAt &&
+      now - new Date(user.verificationCodeSentAt).getTime() < COOLDOWN_MS
+    ) {
+      return next(AppError.tooManyRequests('Espera al menos 60 segundos para solicitar otro código'));
+    }
+
+    const windowStart = user.verificationResendWindowStart
+      ? new Date(user.verificationResendWindowStart).getTime()
+      : now;
+
+    if (now - windowStart >= WINDOW_MS) {
+      user.verificationResendWindowStart = new Date(now);
+      user.verificationResendCount = 0;
+    }
+
+    if ((user.verificationResendCount ?? 0) >= MAX_RESENDS_PER_WINDOW) {
+      return next(AppError.tooManyRequests('Has alcanzado el máximo de reenvíos en la última hora'));
+    }
+
+    user.verificationCode = generateVerificationCode();
+    user.verificationAttempts = 3;
+    user.verificationCodeSentAt = new Date(now);
+    user.verificationResendCount = (user.verificationResendCount ?? 0) + 1;
+    await user.save();
+
+    notificationService.emit('user:verification-code-resent', user);
+
+    return res.status(200).json({
+      message: 'Código de validación reenviado correctamente',
+    });
   } catch (error) {
     return next(error);
   }

@@ -37,6 +37,12 @@ export const validationCodeSchema = z.object({
   }),
 });
 
+export const resendValidationCodeSchema = z.object({
+  body: z.object({
+    email: emailSchema,
+  }),
+});
+
 export const loginSchema = z.object({
   body: z.object({
     email: emailSchema,
