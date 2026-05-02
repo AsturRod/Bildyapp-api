@@ -120,7 +120,7 @@ const deliveryNoteSchema = new mongoose.Schema(
   }
 );
 
-deliveryNoteSchema.pre('validate', function (next) {
+deliveryNoteSchema.pre('validate', function () {
   if (this.format === 'material') {
     const hasSimpleMaterial =
       this.material && this.material.trim() && this.quantity != null && this.unit && this.unit.trim();
@@ -154,17 +154,14 @@ deliveryNoteSchema.pre('validate', function (next) {
     this.unit = undefined;
     this.materials = [];
   }
-
-  next();
 });
 
-deliveryNoteSchema.pre(/^find/, function (next) {
+deliveryNoteSchema.pre(/^find/, function () {
   if (this.getOptions().includeDeleted) {
-    return next();
+    return;
   }
 
   this.where({ deleted: { $ne: true } });
-  next();
 });
 
 export default mongoose.models.DeliveryNote ||

@@ -78,10 +78,9 @@ const projectSchema = new mongoose.Schema(
 projectSchema.index({ company: 1, projectCode: 1 }, { unique: true });
 projectSchema.index({ company: 1, deleted: 1, client: 1, active: 1, createdAt: -1 });
 
-projectSchema.pre(/^find/, function (next) {
-  if (this.getOptions().includeDeleted) return next();
-  this.where({ deleted: { $ne: true } });
-  next();
+projectSchema.pre(/^find/, function () {
+    if (this.getOptions().includeDeleted) return;
+    this.where({ deleted: { $ne: true } });
 });
 
 export default mongoose.models.Project || mongoose.model('Project', projectSchema);

@@ -158,7 +158,7 @@ export const updateProject = async (req, res, next) => {
       },
       req.validated.body,
       {
-        new: true,
+        returnDocument: 'after',
         runValidators: true,
       }
     )
@@ -200,7 +200,7 @@ export const deleteProject = async (req, res, next) => {
       const archivedProject = await Project.findOneAndUpdate(
         baseFilter,
         { deleted: true },
-        { new: true, runValidators: false }
+        { returnDocument: 'after', runValidators: false }
       ).lean();
 
       if (!archivedProject) {
@@ -287,7 +287,7 @@ export const restoreProject = async (req, res, next) => {
         deleted: true,
       },
       { deleted: false },
-      { new: true, runValidators: false }
+      { returnDocument: 'after', runValidators: false }
     )
       .setOptions({ includeDeleted: true })
       .populate('user company client')

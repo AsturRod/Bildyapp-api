@@ -126,7 +126,7 @@ export const updateClient = async (req, res, next) => {
       },
       req.validated.body,
       {
-        new: true,
+        returnDocument: 'after',
         runValidators: true,
       }
     )
@@ -180,7 +180,7 @@ export const deleteClient = async (req, res, next) => {
       const archivedClient = await Client.findOneAndUpdate(
         baseFilter,
         { deleted: true },
-        { new: true, runValidators: false }
+        { returnDocument: 'after', runValidators: false }
       )
         .setOptions({ includeDeleted: true })
         .lean();
@@ -268,7 +268,7 @@ export const restoreClient = async (req, res, next) => {
         deleted: true,
       },
       { deleted: false },
-      { new: true, runValidators: false }
+      { returnDocument: 'after', runValidators: false }
     )
       .setOptions({ includeDeleted: true })
       .populate('user company')

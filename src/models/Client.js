@@ -23,13 +23,12 @@ const clientSchema = new mongoose.Schema({
 clientSchema.index({ company: 1, cif: 1 }, { unique: true });
 clientSchema.index({ company: 1, deleted: 1, name: 1 });
 
-clientSchema.pre(/^find/, function(next) {
+clientSchema.pre(/^find/, function() {
   if (this.getOptions().includeDeleted) {
-    return next();
+    return;
   }
 
   this.where({ deleted: { $ne: true } });
-  next();
 });
 
 export default mongoose.models.Client || mongoose.model('Client', clientSchema);
