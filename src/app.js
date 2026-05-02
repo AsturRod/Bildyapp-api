@@ -1,29 +1,30 @@
 import express from 'express';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
-import expressMongoSanitize from '@exortek/express-mongo-sanitize';
 import cors from 'cors';
 import routes from './routes/index.js';
 import { errorHandler } from './middleware/error-handler.js';
+import rateLimitMiddleware from './middleware/rate-limit.js';
+import sanitizeMiddleware from './middleware/sanitize.js';
+import { swaggerUi, swaggerSpec } from './config/swagger.js';
 import AppError from './utils/AppError.js';
 
 const app = express();
 
 app.use(helmet());
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+app.use(rateLimitMiddleware);
 app.use(cors());
 
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use(
-  expressMongoSanitize({
-    mode: 'auto',
-    sanitizeObjects: ['body', 'params', 'query'],
-  })
-);
+app.use(sanitizeMiddleware);
 
 app.use('/uploads', express.static('uploads'));
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get('/api-docs.json', (_req, res) => {
+  res.json(swaggerSpec);
+});
 
 app.use('/api', routes);
 
