@@ -7,6 +7,7 @@ import rateLimitMiddleware from './middleware/rate-limit.js';
 import sanitizeMiddleware from './middleware/sanitize.js';
 import { swaggerUi, swaggerSpec } from './config/swagger.js';
 import AppError from './utils/AppError.js';
+import mongoose from 'mongoose';
 
 const app = express();
 
@@ -24,6 +25,17 @@ app.use('/uploads', express.static('uploads'));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get('/api-docs.json', (_req, res) => {
   res.json(swaggerSpec);
+});
+
+app.get('/health', (_req, res) => {
+  const dbState = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+
+  return res.status(200).json({
+    status: 'ok',
+    db: dbState,
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.use('/api', routes);

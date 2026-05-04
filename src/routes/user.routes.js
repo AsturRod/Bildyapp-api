@@ -35,6 +35,58 @@ import {
 
 const router = express.Router();
 
+/**
+ * @openapi
+ * tags:
+ *   - name: User
+ *     description: Registro, autenticacion y perfil de usuario
+ *
+ * /user/register:
+ *   post:
+ *     tags:
+ *       - User
+ *     summary: Registrar usuario
+ *     requestBody:
+ *       $ref: '#/components/requestBodies/RegisterBody'
+ *     responses:
+ *       '201':
+ *         description: Usuario registrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *
+ * /user/login:
+ *   post:
+ *     tags:
+ *       - User
+ *     summary: Iniciar sesion
+ *     requestBody:
+ *       $ref: '#/components/requestBodies/LoginBody'
+ *     responses:
+ *       '200':
+ *         description: Sesion iniciada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *
+ * /user:
+ *   get:
+ *     tags:
+ *       - User
+ *     summary: Obtener usuario autenticado
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Usuario obtenido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ */
+
 router.post('/register', validate(registerSchema), register);
 router.put('/validation', authMiddleware, validate(validationCodeSchema), validateEmail);
 router.post('/validation/resend', validate(resendValidationCodeSchema), resendValidationCode);

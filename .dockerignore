@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+.DS_Store
+.env
+uploads
+tests
+.vscode
+.git
+openapi.json
+logs
+coverage
+.idea
+*.log
