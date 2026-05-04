@@ -25,6 +25,7 @@
   "dependencies": {
     "@exortek/express-mongo-sanitize": "^2.0.2",
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.10.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
@@ -35,6 +36,7 @@
     "multer": "^2.1.1",
     "nodemailer": "^8.0.7",
     "pdfkit": "^0.18.0",
+    "sharp": "^0.34.5",
     "socket.io": "^4.7.2",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",

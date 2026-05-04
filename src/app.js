@@ -51,6 +51,10 @@ const healthHandler = (_req, res) => {
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
 
+app.get('/api/debug/force-500', (_req, _res, next) => {
+  next(new Error('Forced internal server error for test.http'));
+});
+
 app.use('/api', routes);
 
 app.use('/{*splat}', (req, _res, next) => {

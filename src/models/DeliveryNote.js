@@ -106,6 +106,11 @@ const deliveryNoteSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    pdfPublicId: {
+      type: String,
+      trim: true,
+      default: null,
+    },
 
     deleted: {
       type: Boolean,

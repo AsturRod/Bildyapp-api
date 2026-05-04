@@ -1,4 +1,6 @@
-export const errorHandler = (err, _req, res, _next) => {
+import { sendToSlack } from '../services/logger.service.js';
+
+export const errorHandler = (err, req, res, _next) => {
   let statusCode = err.statusCode || 500;
   let status = err.status || 'error';
   let message = err.message || 'Error interno del servidor';
@@ -29,6 +31,19 @@ export const errorHandler = (err, _req, res, _next) => {
     statusCode = 401;
     status = 'fail';
     message = 'Token expirado';
+  }
+
+  
+  if (statusCode >= 500) {
+    sendToSlack({
+      statusCode,
+      message,
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      timestamp: new Date().toISOString(),
+      stack: err.stack,
+    });
   }
 
   return res.status(statusCode).json({

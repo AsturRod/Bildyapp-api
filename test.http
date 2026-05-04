@@ -17,6 +17,9 @@
 ### Health Check - Comprueba que la API responde
 GET {{baseUrl}}/health
 
+### Force 500 - Dispara un error interno real para probar Slack logging
+GET {{baseUrl}}/debug/force-500
+
 ###############################################
 # AUTH / USER
 ###############################################

@@ -898,7 +898,6 @@ const swaggerDefinition = {
 
 const swaggerOptions = {
   definition: swaggerDefinition,
-	// Enable reading JSDoc/OpenAPI annotations from route and model files
 	apis: [
 		'src/routes/*.js',
 		'src/models/*.js',

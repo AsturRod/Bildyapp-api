@@ -71,7 +71,25 @@ router.use(authMiddleware);
  *           type: string
  *     responses:
  *       '200':
- *         description: PDF o URL de PDF
+ *         description: PDF o URL firmada del PDF
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     pdfUrl:
+ *                       type: string
+ *                       example: https://res.cloudinary.com/demo/raw/upload/signed.pdf
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
  *
  * /deliverynote/{id}/sign:
  *   patch:

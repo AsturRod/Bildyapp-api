@@ -4,7 +4,7 @@ import Project from '../models/Project.js';
 import AppError from '../utils/AppError.js';
 import { generateDeliveryNotePdf } from '../services/pdf.service.js';
 import { emitToCompany } from '../services/socket.service.js';
-import path from 'path';
+import { uploadDeliveryNotePdf, uploadSignatureFile } from '../services/storage.service.js';
 
 const getCompanyId = (user) => {
   if (!user?.company) return null;
@@ -227,11 +227,33 @@ export const signDeliveryNote = async (req, res, next) => {
       return next(AppError.badRequest('Debes enviar un archivo de firma'));
     }
 
+    const signatureUpload = await uploadSignatureFile({
+      filePath: req.file.path,
+      deliveryNoteId: deliveryNote._id,
+    });
+
     deliveryNote.signed = true;
     deliveryNote.signedAt = new Date();
-    const signaturePath = req.file.path || req.file.filename;
-    deliveryNote.signatureUrl = signaturePath ? path.resolve(signaturePath) : null;
-    deliveryNote.pdfUrl = `/api/deliverynote/pdf/${deliveryNote._id}`;
+    deliveryNote.signatureUrl = signatureUpload.url;
+
+    await deliveryNote.save();
+
+    const populatedSignedDeliveryNote = await DeliveryNote.findById(deliveryNote._id)
+      .populate(deliveryNotePopulate)
+      .lean();
+
+    const signedPdfBuffer = await generateDeliveryNotePdf({
+      ...populatedSignedDeliveryNote,
+      signatureUrl: signatureUpload.url,
+    });
+
+    const pdfUpload = await uploadDeliveryNotePdf({
+      buffer: signedPdfBuffer,
+      deliveryNoteId: deliveryNote._id,
+    });
+
+    deliveryNote.pdfUrl = pdfUpload.url;
+    deliveryNote.pdfPublicId = pdfUpload.publicId || null;
 
     await deliveryNote.save();
 
@@ -293,6 +315,24 @@ export const getDeliveryNotePdf = async (req, res, next) => {
     }
 
     if (deliveryNote.signed && isExternalPdfUrl(deliveryNote.pdfUrl)) {
+      const acceptHeader = (req.get('accept') || '').toLowerCase();
+
+      if (acceptHeader.includes('application/pdf') || acceptHeader.includes('application/octet-stream')) {
+        const response = await fetch(deliveryNote.pdfUrl);
+
+        if (!response.ok) {
+          return next(AppError.badRequest('No se pudo descargar el PDF firmado'));
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const pdfBuffer = Buffer.from(arrayBuffer);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="delivery-note-${deliveryNote._id}.pdf"`);
+
+        return res.send(pdfBuffer);
+      }
+
       return res.status(200).json({
         status: 'success',
         data: {
