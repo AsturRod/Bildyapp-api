@@ -1,6 +1,6 @@
 # BildyApp API
 
-Backend REST para la gestión de albaranes (partes de horas o materiales) entre clientes y proveedores. Implementado con Node.js, Express, MongoDB, Swagger, Jest, Socket.IO, Docker y tecnologías profesionales.
+Backend REST para la gestión de albaranes (partes de horas o materiales) entre clientes y proveedores. Implementado con Node.js, Express, MongoDB, Swagger, Jest, Socket.IO y Docker
 
 ## Estructura del Proyecto
 
