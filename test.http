@@ -1,0 +1,323 @@
+
+
+@baseUrl = http://localhost:3000/api
+@email = test{{$timestamp}}@bildyapp.test
+@password = Pass1234!
+@accessToken = 
+@refreshToken = 
+@companyId = 
+@clientId = 
+@projectId = 
+@deliveryNoteId = 
+
+###############################################
+# SYSTEM ENDPOINTS
+###############################################
+
+### Health Check - Comprueba que la API responde
+GET {{baseUrl}}/health
+
+###############################################
+# AUTH / USER
+###############################################
+
+### Register User - Crea un nuevo usuario
+POST {{baseUrl}}/user/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Login User - Autentica y devuelve accessToken/refreshToken
+POST {{baseUrl}}/user/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Get Current User - Obtiene datos del usuario autenticado
+GET {{baseUrl}}/user
+Authorization: Bearer {{accessToken}}
+
+### Update Personal Data - Actualiza nombre, apellidos, NIF
+PUT {{baseUrl}}/user/register
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Juan",
+  "lastName": "García López",
+  "nif": "12345678A"
+}
+
+### Create/Update Company - Crea o actualiza la empresa del usuario
+PATCH {{baseUrl}}/user/company
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Construcciones Norte SL",
+  "cif": "B90000100",
+  "address": {
+    "street": "Calle Mayor",
+    "number": "12",
+    "postal": "28001",
+    "city": "Madrid",
+    "province": "Madrid"
+  },
+  "isFreelance": false
+}
+
+### Upload Company Logo - Requiere multipart/form-data (usar curl/Postman)
+# Ejemplo curl:
+# curl -X PATCH {{baseUrl}}/user/logo -H "Authorization: Bearer {{accessToken}}" -F "logo=@/ruta/logo.png"
+PATCH {{baseUrl}}/user/logo
+Authorization: Bearer {{accessToken}}
+
+### Refresh Token - Renovar access token usando refreshToken
+POST {{baseUrl}}/user/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+### Logout - Cerrar sesión
+POST {{baseUrl}}/user/logout
+Authorization: Bearer {{accessToken}}
+
+### Delete User Account - Eliminar cuenta (requiere password)
+DELETE {{baseUrl}}/user
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "password": "{{password}}"
+}
+
+### Change Password - Cambiar contraseña
+PATCH {{baseUrl}}/user/password
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "currentPassword": "{{password}}",
+  "newPassword": "NewPass1234!"
+}
+
+### Validate Email - Validar email con código
+POST {{baseUrl}}/user/validate-email
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "code": "123456"
+}
+
+### Resend Validation Code - Reenviar código al email
+POST {{baseUrl}}/user/resend-validation-code
+Content-Type: application/json
+
+{
+  "email": "{{email}}"
+}
+
+### Invite User - Invitar a otro usuario a la empresa
+POST {{baseUrl}}/user/invite
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "role": "user"
+}
+
+###############################################
+# CLIENTS
+###############################################
+
+### Create Client - Crear nuevo cliente
+POST {{baseUrl}}/client
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Cliente Premium SA",
+  "cif": "A12345678",
+  "email": "contacto@cliente.com",
+  "phone": "666111222",
+  "address": {
+    "street": "Calle Principal",
+    "number": "5",
+    "postal": "28002",
+    "city": "Madrid",
+    "province": "Madrid"
+  }
+}
+
+### List Clients - Listar clientes con paginación y filtros
+GET {{baseUrl}}/client?page=1&limit=10&name=Cliente&sort=-createdAt
+Authorization: Bearer {{accessToken}}
+
+### Get Client by ID - Detalles de un cliente
+GET {{baseUrl}}/client/{{clientId}}
+Authorization: Bearer {{accessToken}}
+
+### Update Client - Actualizar cliente
+PUT {{baseUrl}}/client/{{clientId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Cliente Premium SA - Actualizado",
+  "email": "nuevoemail@cliente.com",
+  "phone": "666222333"
+}
+
+### List Archived Clients - Listar clientes eliminados
+GET {{baseUrl}}/client/archived?page=1&limit=10
+Authorization: Bearer {{accessToken}}
+
+### Delete Client - Eliminar cliente (soft delete)
+DELETE {{baseUrl}}/client/{{clientId}}?soft=true
+Authorization: Bearer {{accessToken}}
+
+### Restore Client - Restaurar cliente eliminado
+PATCH {{baseUrl}}/client/{{clientId}}/restore
+Authorization: Bearer {{accessToken}}
+
+###############################################
+# PROJECTS
+###############################################
+
+### Create Project - Crear nuevo proyecto
+POST {{baseUrl}}/project
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "client": "{{clientId}}",
+  "name": "Reforma Oficina Central",
+  "projectCode": "PROJ-2026-001",
+  "address": {
+    "street": "Avenida Reforma",
+    "number": "42",
+    "postal": "28003",
+    "city": "Madrid",
+    "province": "Madrid"
+  },
+  "email": "obra@demo.com",
+  "notes": "Acceso de 8:00 a 18:00. Parking disponible.",
+  "active": true
+}
+
+### List Projects - Listar proyectos con filtros
+GET {{baseUrl}}/project?page=1&limit=10&client={{clientId}}&active=true&sort=-createdAt
+Authorization: Bearer {{accessToken}}
+
+### Get Project by ID - Detalles del proyecto
+GET {{baseUrl}}/project/{{projectId}}
+Authorization: Bearer {{accessToken}}
+
+### Update Project - Actualizar proyecto
+PUT {{baseUrl}}/project/{{projectId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Reforma Oficina Central - Fase 2",
+  "active": true,
+  "notes": "Proyecto en revisión"
+}
+
+### List Archived Projects - Listar proyectos eliminados
+GET {{baseUrl}}/project/archived?page=1&limit=10
+Authorization: Bearer {{accessToken}}
+
+### Delete Project - Eliminar proyecto (soft delete)
+DELETE {{baseUrl}}/project/{{projectId}}?soft=true
+Authorization: Bearer {{accessToken}}
+
+### Restore Project - Restaurar proyecto eliminado
+PATCH {{baseUrl}}/project/{{projectId}}/restore
+Authorization: Bearer {{accessToken}}
+
+###############################################
+# DELIVERY NOTES (ALBARANES)
+###############################################
+
+### Create Delivery Note (Format: Hours)
+POST {{baseUrl}}/deliverynote
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "client": "{{clientId}}",
+  "project": "{{projectId}}",
+  "format": "hours",
+  "description": "Instalación eléctrica planta 2 - Fase 1",
+  "workDate": "2026-05-04T09:00:00.000Z",
+  "hours": 8,
+  "workers": [
+    { "name": "Operario 1", "hours": 4 },
+    { "name": "Operario 2", "hours": 4 }
+  ]
+}
+
+### Create Delivery Note (Format: Material)
+POST {{baseUrl}}/deliverynote
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "client": "{{clientId}}",
+  "project": "{{projectId}}",
+  "format": "material",
+  "description": "Entrega de materiales construcción",
+  "workDate": "2026-05-04T10:00:00.000Z",
+  "material": "Tubo PVC 20mm",
+  "quantity": 50,
+  "unit": "uds"
+}
+
+### List Delivery Notes - Listar albaranes con filtros
+GET {{baseUrl}}/deliverynote?page=1&limit=10&project={{projectId}}&format=hours&signed=false&sort=-workDate
+Authorization: Bearer {{accessToken}}
+
+### Get Delivery Note by ID - Detalles del albarán
+GET {{baseUrl}}/deliverynote/{{deliveryNoteId}}
+Authorization: Bearer {{accessToken}}
+
+### Get Delivery Note PDF - Descargar PDF generado
+GET {{baseUrl}}/deliverynote/pdf/{{deliveryNoteId}}
+Authorization: Bearer {{accessToken}}
+
+### Sign Delivery Note - Firmar albarán con imagen (multipart)
+# Ejemplo curl:
+# curl -X PATCH {{baseUrl}}/deliverynote/{{deliveryNoteId}}/sign \
+#   -H "Authorization: Bearer {{accessToken}}" \
+#   -F "signature=@/ruta/firma.png"
+PATCH {{baseUrl}}/deliverynote/{{deliveryNoteId}}/sign
+Authorization: Bearer {{accessToken}}
+
+### Delete Delivery Note - Eliminar albarán (solo si no está firmado)
+DELETE {{baseUrl}}/deliverynote/{{deliveryNoteId}}
+Authorization: Bearer {{accessToken}}
+
+###############################################
+# USAGE GUIDE (BREVE)
+###############################################
+# 1. Abrir este archivo en VS Code con la extensión REST Client instalada.
+# 2. Ejecutar primero: Register User, luego Login User.
+# 3. Copiar el campo "accessToken" de la respuesta de Login y pegarlo en la variable @accessToken arriba.
+# 4. Si se devuelve "refreshToken", pegarlo en @refreshToken para probar refresh.
+# 5. Completar @clientId, @projectId y @deliveryNoteId con los IDs devueltos por las peticiones de creación.
+# 6. Los endpoints multipart (logo, firma) deben probarse con curl o Postman como se indica en los comentarios.
+
+###############################################
+# FIN
+###############################################

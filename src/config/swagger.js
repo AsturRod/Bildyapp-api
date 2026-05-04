@@ -11,19 +11,16 @@ const swaggerDefinition = {
 	},
 	servers: [
 		{
-			url: '/',
-			description: 'Servidor raiz',
-		},
-		{
 			url: '/api',
-			description: 'Servidor actual',
+			description: 'Servidor API',
 		},
 	],
 	tags: [
-		{ name: 'User', description: 'Registro, autenticacion y perfil de usuario' },
-		{ name: 'Client', description: 'Gestion de clientes de la compania' },
-		{ name: 'Project', description: 'Gestion de proyectos de la compania' },
-		{ name: 'DeliveryNote', description: 'Gestion de albaranes y firma' },
+			{ name: 'User', description: 'Registro, autenticacion y perfil de usuario' },
+			{ name: 'Company', description: 'Gestion de la compania del usuario' },
+			{ name: 'Client', description: 'Gestion de clientes de la compania' },
+			{ name: 'Project', description: 'Gestion de proyectos de la compania' },
+			{ name: 'DeliveryNote', description: 'Gestion de albaranes y firma' },
 	],
 	components: {
 		securitySchemes: {
@@ -577,7 +574,7 @@ const swaggerDefinition = {
 		},
 		'/user/company': {
 			patch: {
-				tags: ['User'],
+				tags: ['Company'],
 				summary: 'Crear o actualizar compania',
 				security: [{ bearerAuth: [] }],
 				requestBody: { $ref: '#/components/requestBodies/CompanyBody' },

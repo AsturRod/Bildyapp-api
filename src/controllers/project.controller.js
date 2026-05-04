@@ -1,6 +1,7 @@
 import Client from '../models/Client.js';
 import Project from '../models/Project.js';
 import AppError from '../utils/AppError.js';
+import { emitToCompany } from '../services/socket.service.js';
 
 const ALLOWED_SORTS = new Set(['name', '-name', 'createdAt', '-createdAt']);
 
@@ -97,6 +98,17 @@ export const createProject = async (req, res, next) => {
     const populated = await Project.findById(project._id)
       .populate('user company client')
       .lean();
+
+    
+    emitToCompany(companyId, 'project:new', {
+      _id: populated._id,
+      name: populated.name,
+      projectCode: populated.projectCode,
+      client: populated.client?.name,
+      active: populated.active,
+      createdAt: populated.createdAt,
+      createdBy: populated.user?.email,
+    });
 
     return res.status(201).json({
       status: 'success',

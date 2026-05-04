@@ -1,11 +1,12 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
-import app from './app.js';
+import app, { setupSocketIO } from './app.js';
 import config from './config/index.js';
 
 const PORT = config.port || 3000;
 
 let server;
+let io;
 
 mongoose
   .connect(config.mongoUri)
@@ -15,6 +16,9 @@ mongoose
     server = app.listen(PORT, () => {
       console.log(`Servidor corriendo en puerto ${PORT}`);
     });
+
+    
+    io = setupSocketIO(server);
   })
   .catch((error) => {
     console.error('Error conectando MongoDB:', error);
@@ -25,6 +29,12 @@ const gracefulShutdown = async (signal) => {
   console.log(`\n${signal} recibido. Cerrando servidor...`);
 
   try {
+    
+    if (io) {
+      io.close();
+      console.log('Socket.IO cerrado');
+    }
+
     if (server) {
       await new Promise((resolve, reject) => {
         server.close((err) => {

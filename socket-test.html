@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Test - BildyApp</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .connection-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-connect {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-connect:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-connect:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-disconnect {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-disconnect:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(231, 76, 60, 0.4);
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: 600;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .connected .status-dot {
+            background: #28a745;
+        }
+
+        .disconnected .status-dot {
+            background: #dc3545;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .events-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .event-panel {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .event-header {
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .event-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        .event-body {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .event-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #f5f5f5;
+            border-left: 4px solid #667eea;
+            border-radius: 3px;
+            font-size: 0.95em;
+        }
+
+        .event-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .event-item .timestamp {
+            color: #666;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+
+        .event-item .data {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .event-item.client-new {
+            border-left-color: #3498db;
+        }
+
+        .event-item.project-new {
+            border-left-color: #2ecc71;
+        }
+
+        .event-item.deliverynote-new {
+            border-left-color: #f39c12;
+        }
+
+        .event-item.deliverynote-signed {
+            border-left-color: #e74c3c;
+        }
+
+        .empty-message {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+        }
+
+        .clear-button {
+            width: 100%;
+            padding: 10px;
+            background: #ecf0f1;
+            border: none;
+            border-top: 1px solid #e0e0e0;
+            cursor: pointer;
+            font-weight: 600;
+            color: #555;
+            transition: background 0.3s;
+        }
+
+        .clear-button:hover {
+            background: #d5dbdb;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .events-container {
+                grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Socket.IO Real-time Monitor</h1>
+            <p>BildyApp - Monitorea eventos en tiempo real</p>
+        </div>
+
+        <div class="connection-panel">
+            <h2>📡 Conexión</h2>
+            
+            <div class="form-group">
+                <label for="tokenInput">Token JWT (Obligatorio):</label>
+                <input 
+                    type="password" 
+                    id="tokenInput" 
+                    placeholder="Pega aquí tu access token"
+                    autocomplete="off"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="urlInput">URL del servidor:</label>
+                <input 
+                    type="text" 
+                    id="urlInput" 
+                    value="http://localhost:3000"
+                    placeholder="http://localhost:3000"
+                >
+            </div>
+
+            <div class="button-group">
+                <button class="btn-connect" onclick="connectSocket()">Conectar</button>
+                <button class="btn-disconnect" onclick="disconnectSocket()" disabled>Desconectar</button>
+            </div>
+
+            <div class="status disconnected" id="statusDiv">
+                <div class="status-dot"></div>
+                <span id="statusText">Desconectado</span>
+            </div>
+        </div>
+
+        <div class="events-container">
+            <!-- Clientes -->
+            <div class="event-panel">
+                <div class="event-header">
+                    👥 Clientes
+                    <span class="event-badge" id="clientCount">0</span>
+                </div>
+                <div class="event-body" id="clientEvents">
+                    <div class="empty-message">Esperando eventos...</div>
+                </div>
+                <button class="clear-button" onclick="clearEvents('clientEvents')">Limpiar</button>
+            </div>
+
+            <!-- Proyectos -->
+            <div class="event-panel">
+                <div class="event-header">
+                    📋 Proyectos
+                    <span class="event-badge" id="projectCount">0</span>
+                </div>
+                <div class="event-body" id="projectEvents">
+                    <div class="empty-message">Esperando eventos...</div>
+                </div>
+                <button class="clear-button" onclick="clearEvents('projectEvents')">Limpiar</button>
+            </div>
+
+            <!-- Albaranes -->
+            <div class="event-panel">
+                <div class="event-header">
+                    📦 Albaranes
+                    <span class="event-badge" id="deliveryCount">0</span>
+                </div>
+                <div class="event-body" id="deliveryEvents">
+                    <div class="empty-message">Esperando eventos...</div>
+                </div>
+                <button class="clear-button" onclick="clearEvents('deliveryEvents')">Limpiar</button>
+            </div>
+
+            <!-- Firmas -->
+            <div class="event-panel">
+                <div class="event-header">
+                    ✍️ Firmas
+                    <span class="event-badge" id="signedCount">0</span>
+                </div>
+                <div class="event-body" id="signedEvents">
+                    <div class="empty-message">Esperando eventos...</div>
+                </div>
+                <button class="clear-button" onclick="clearEvents('signedEvents')">Limpiar</button>
+            </div>
+
+            <!-- Conexión -->
+            <div class="event-panel">
+                <div class="event-header">
+                    🔌 Conexión
+                    <span class="event-badge" id="connectionCount">0</span>
+                </div>
+                <div class="event-body" id="connectionEvents">
+                    <div class="empty-message">Esperando eventos...</div>
+                </div>
+                <button class="clear-button" onclick="clearEvents('connectionEvents')">Limpiar</button>
+            </div>
+
+            <!-- Errores -->
+            <div class="event-panel">
+                <div class="event-header">
+                    ⚠️ Errores
+                    <span class="event-badge" id="errorCount">0</span>
+                </div>
+                <div class="event-body" id="errorEvents">
+                    <div class="empty-message">Sin errores</div>
+                </div>
+                <button class="clear-button" onclick="clearEvents('errorEvents')">Limpiar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        const eventCounts = {
+            client: 0,
+            project: 0,
+            delivery: 0,
+            signed: 0,
+            connection: 0,
+            error: 0
+        };
+
+        function connectSocket() {
+            const token = document.getElementById('tokenInput').value.trim();
+            const url = document.getElementById('urlInput').value.trim();
+
+            if (!token) {
+                alert('Por favor, introduce un token JWT válido');
+                return;
+            }
+
+            if (socket) {
+                socket.disconnect();
+            }
+
+            socket = io(url, {
+                auth: {
+                    token: token
+                },
+                reconnection: true,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                reconnectionAttempts: 5
+            });
+
+            window.socketTestServerUrl = url;
+
+            // Eventos de conexión
+            socket.on('connect', () => {
+                updateStatus(true);
+                addConnectionEvent('✅ Conectado exitosamente');
+            });
+
+            socket.on('disconnect', (reason) => {
+                updateStatus(false);
+                addConnectionEvent(`❌ Desconectado: ${reason}`);
+            });
+
+            socket.on('connect_error', (error) => {
+                addError(`Error de conexión: ${error.message}`);
+                updateStatus(false);
+            });
+
+            // Eventos de negocio
+            socket.on('client:new', (data) => {
+                addClientEvent(data);
+            });
+
+            socket.on('project:new', (data) => {
+                addProjectEvent(data);
+            });
+
+            socket.on('deliverynote:new', (data) => {
+                addDeliveryEvent(data);
+            });
+
+            socket.on('deliverynote:updated', (data) => {
+                addDeliveryEvent(data);
+            });
+
+            socket.on('deliverynote:signed', (data) => {
+                addSignedEvent(data);
+            });
+
+            // Botones
+            document.querySelector('.btn-connect').disabled = true;
+            document.querySelector('.btn-disconnect').disabled = false;
+        }
+
+        function disconnectSocket() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                updateStatus(false);
+                document.querySelector('.btn-connect').disabled = false;
+                document.querySelector('.btn-disconnect').disabled = true;
+            }
+        }
+
+        function updateStatus(connected) {
+            const statusDiv = document.getElementById('statusDiv');
+            const statusText = document.getElementById('statusText');
+
+            if (connected) {
+                statusDiv.className = 'status connected';
+                statusText.textContent = 'Conectado ✓';
+            } else {
+                statusDiv.className = 'status disconnected';
+                statusText.textContent = 'Desconectado ✗';
+            }
+        }
+
+        function addClientEvent(data) {
+            eventCounts.client++;
+            document.getElementById('clientCount').textContent = eventCounts.client;
+            const container = document.getElementById('clientEvents');
+            clearEmptyMessage(container);
+
+            const item = document.createElement('div');
+            item.className = 'event-item client-new';
+            item.innerHTML = `
+                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
+                <div class="data">
+                    <strong>${data.name}</strong> (CIF: ${data.cif})<br>
+                    📧 ${data.email}<br>
+                    <small>Por: ${data.createdBy}</small>
+                </div>
+            `;
+            container.insertBefore(item, container.firstChild);
+        }
+
+        function addProjectEvent(data) {
+            eventCounts.project++;
+            document.getElementById('projectCount').textContent = eventCounts.project;
+            const container = document.getElementById('projectEvents');
+            clearEmptyMessage(container);
+
+            const item = document.createElement('div');
+            item.className = 'event-item project-new';
+            item.innerHTML = `
+                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
+                <div class="data">
+                    <strong>${data.name}</strong> (${data.projectCode})<br>
+                    Cliente: ${data.client}<br>
+                    Estado: ${data.active ? '✅ Activo' : '❌ Inactivo'}<br>
+                    <small>Por: ${data.createdBy}</small>
+                </div>
+            `;
+            container.insertBefore(item, container.firstChild);
+        }
+
+        function addDeliveryEvent(data) {
+            upsertDeliveryEvent(data, false);
+        }
+
+        function addSignedEvent(data) {
+            eventCounts.signed++;
+            document.getElementById('signedCount').textContent = eventCounts.signed;
+            const container = document.getElementById('signedEvents');
+            clearEmptyMessage(container);
+
+            const item = document.createElement('div');
+            item.className = 'event-item deliverynote-signed';
+            item.innerHTML = `
+                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
+                <div class="data">
+                    <strong>Albarán Firmado</strong><br>
+                    Firmado por: ${data.signedBy}<br>
+                    Fecha: ${new Date(data.signedAt).toLocaleString()}<br>
+                    <button type="button" class="clear-button" style="margin-top:10px; border-top:none;" onclick="downloadDeliveryPdf('${data.pdfUrl}')">Descargar PDF</button>
+                </div>
+            `;
+            container.insertBefore(item, container.firstChild);
+
+            upsertDeliveryEvent(data, true);
+        }
+
+        function upsertDeliveryEvent(data, forceSigned = false) {
+            const container = document.getElementById('deliveryEvents');
+            clearEmptyMessage(container);
+
+            const existingItem = container.querySelector(`[data-delivery-id="${data._id}"]`);
+            const isSigned = forceSigned || Boolean(data.signed);
+            const cssClass = isSigned ? 'deliverynote-signed' : 'deliverynote-new';
+            const pdfButton = data.pdfUrl
+                ? `<button type="button" class="clear-button" style="margin-top:10px; border-top:none;" onclick="downloadDeliveryPdf('${data.pdfUrl}')">Descargar PDF</button>`
+                : '';
+
+            const html = `
+                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
+                <div class="data">
+                    <strong>Formato: ${String(data.format || '').toUpperCase()}</strong><br>
+                    Cliente: ${data.client ?? '-'}<br>
+                    Proyecto: ${data.project ?? '-'}<br>
+                    Descripción: ${data.description ?? '-'}<br>
+                    Firmado: ${isSigned ? '✅ Sí' : '❌ No'}<br>
+                    ${pdfButton}
+                    <small>Por: ${data.createdBy ?? '-'}</small>
+                </div>
+            `;
+
+            if (existingItem) {
+                existingItem.className = `event-item ${cssClass}`;
+                existingItem.innerHTML = html;
+                return;
+            }
+
+            eventCounts.delivery++;
+            document.getElementById('deliveryCount').textContent = eventCounts.delivery;
+
+            const item = document.createElement('div');
+            item.className = `event-item ${cssClass}`;
+            item.dataset.deliveryId = data._id;
+            item.innerHTML = html;
+            container.insertBefore(item, container.firstChild);
+        }
+
+        async function downloadDeliveryPdf(pdfUrl) {
+            try {
+                const token = document.getElementById('tokenInput').value.trim();
+                const serverUrl = window.socketTestServerUrl || document.getElementById('urlInput').value.trim();
+                const resolvedPdfUrl = pdfUrl.startsWith('http') ? pdfUrl : `${serverUrl}${pdfUrl}`;
+
+                if (!token) {
+                    alert('Introduce un token JWT válido antes de descargar el PDF');
+                    return;
+                }
+
+                const response = await fetch(resolvedPdfUrl, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || `Error ${response.status}`);
+                }
+
+                const blob = await response.blob();
+                const objectUrl = window.URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = objectUrl;
+                anchor.download = resolvedPdfUrl.split('/').pop() || 'delivery-note.pdf';
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                window.URL.revokeObjectURL(objectUrl);
+            } catch (error) {
+                addError(`No se pudo descargar el PDF: ${error.message}`);
+            }
+        }
+
+        function addConnectionEvent(message) {
+            eventCounts.connection++;
+            document.getElementById('connectionCount').textContent = eventCounts.connection;
+            const container = document.getElementById('connectionEvents');
+            clearEmptyMessage(container);
+
+            const item = document.createElement('div');
+            item.className = 'event-item';
+            item.innerHTML = `
+                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
+                <div class="data">${message}</div>
+            `;
+            container.insertBefore(item, container.firstChild);
+        }
+
+        function addError(message) {
+            eventCounts.error++;
+            document.getElementById('errorCount').textContent = eventCounts.error;
+            const container = document.getElementById('errorEvents');
+            clearEmptyMessage(container);
+
+            const item = document.createElement('div');
+            item.className = 'event-item';
+            item.innerHTML = `
+                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
+                <div class="data" style="color: #e74c3c;">${message}</div>
+            `;
+            container.insertBefore(item, container.firstChild);
+        }
+
+        function clearEmptyMessage(container) {
+            const empty = container.querySelector('.empty-message');
+            if (empty) {
+                empty.remove();
+            }
+        }
+
+        function clearEvents(containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '<div class="empty-message">Esperando eventos...</div>';
+
+            // Reset counters
+            if (containerId === 'clientEvents') eventCounts.client = 0;
+            if (containerId === 'projectEvents') eventCounts.project = 0;
+            if (containerId === 'deliveryEvents') eventCounts.delivery = 0;
+            if (containerId === 'signedEvents') eventCounts.signed = 0;
+            if (containerId === 'connectionEvents') eventCounts.connection = 0;
+            if (containerId === 'errorEvents') eventCounts.error = 0;
+
+            updateCounts();
+        }
+
+        function updateCounts() {
+            document.getElementById('clientCount').textContent = eventCounts.client;
+            document.getElementById('projectCount').textContent = eventCounts.project;
+            document.getElementById('deliveryCount').textContent = eventCounts.delivery;
+            document.getElementById('signedCount').textContent = eventCounts.signed;
+            document.getElementById('connectionCount').textContent = eventCounts.connection;
+            document.getElementById('errorCount').textContent = eventCounts.error;
+        }
+    </script>
+</body>
+</html>

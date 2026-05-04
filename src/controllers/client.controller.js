@@ -1,5 +1,6 @@
 import Client from '../models/Client.js';
 import AppError from '../utils/AppError.js';
+import { emitToCompany } from '../services/socket.service.js';
 
 const ALLOWED_SORTS = new Set(['name', 'createdAt', '-name', '-createdAt']);
 
@@ -76,6 +77,16 @@ export const createClient = async (req, res, next) => {
     const populated = await Client.findById(client._id)
       .populate('user company')
       .lean();
+
+    
+    emitToCompany(companyId, 'client:new', {
+      _id: populated._id,
+      name: populated.name,
+      cif: populated.cif,
+      email: populated.email,
+      createdAt: populated.createdAt,
+      createdBy: populated.user?.email,
+    });
 
     return res.status(201).json({ status: 'success', data: populated });
   } catch (error) {

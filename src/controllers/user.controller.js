@@ -5,6 +5,7 @@ import Company from '../models/Company.js';
 import config from '../config/index.js';
 import AppError from '../utils/AppError.js';
 import notificationService from '../services/notification.service.js';
+import { sendVerificationEmail } from '../services/mail.service.js';
 
 const generateAccessToken = (user) => {
   return jwt.sign(
@@ -59,6 +60,13 @@ const buildAuthResponse = (user, tokens) => {
   };
 };
 
+const sendVerificationCodeEmail = async (user) => {
+  await sendVerificationEmail({
+    email: user.email,
+    code: user.verificationCode,
+  });
+};
+
 export const register = async (req, res, next) => {
   try {
     const { email, password } = req.validated.body;
@@ -100,6 +108,14 @@ export const register = async (req, res, next) => {
       role: 'admin',
       status: 'pending',
     });
+
+    try {
+		await sendVerificationCodeEmail(user);
+	} catch (_error) {
+		await User.deleteOne({ _id: user._id });
+		return next(AppError.internal('No se pudo enviar el código de verificación por email'));
+	}
+
     const tokens = await issueTokensForUser(user);
 
     notificationService.emit('user:registered', user);
@@ -159,6 +175,12 @@ export const resendValidationCode = async (req, res, next) => {
     user.verificationCodeSentAt = new Date(now);
     user.verificationResendCount = (user.verificationResendCount ?? 0) + 1;
     await user.save();
+
+    try {
+		await sendVerificationCodeEmail(user);
+	} catch (_error) {
+		return next(AppError.internal('No se pudo reenviar el código de verificación por email'));
+	}
 
     notificationService.emit('user:verification-code-resent', user);
 

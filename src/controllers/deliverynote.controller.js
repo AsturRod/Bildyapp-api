@@ -3,11 +3,17 @@ import Client from '../models/Client.js';
 import Project from '../models/Project.js';
 import AppError from '../utils/AppError.js';
 import { generateDeliveryNotePdf } from '../services/pdf.service.js';
+import { emitToCompany } from '../services/socket.service.js';
+import path from 'path';
 
 const getCompanyId = (user) => {
   if (!user?.company) return null;
   if (typeof user.company === 'object' && user.company._id) return user.company._id;
   return user.company;
+};
+
+const isExternalPdfUrl = (pdfUrl) => {
+  return typeof pdfUrl === 'string' && pdfUrl.startsWith('http') && !pdfUrl.includes('/api/deliverynote/pdf/');
 };
 
 const deliveryNotePopulate = 'user company client project';
@@ -46,6 +52,18 @@ export const createDeliveryNote = async (req, res, next) => {
     const populated = await DeliveryNote.findById(deliveryNote._id)
       .populate(deliveryNotePopulate)
       .lean();
+
+    emitToCompany(companyId, 'deliverynote:new', {
+      _id: populated._id,
+      format: populated.format,
+      description: populated.description,
+      workDate: populated.workDate,
+      client: populated.client?.name,
+      project: populated.project?.name,
+      signed: populated.signed,
+      createdAt: populated.createdAt,
+      createdBy: populated.user?.email,
+    });
 
     return res.status(201).json({
       status: 'success',
@@ -211,7 +229,8 @@ export const signDeliveryNote = async (req, res, next) => {
 
     deliveryNote.signed = true;
     deliveryNote.signedAt = new Date();
-    deliveryNote.signatureUrl = req.file.path || req.file.filename || null;
+    const signaturePath = req.file.path || req.file.filename;
+    deliveryNote.signatureUrl = signaturePath ? path.resolve(signaturePath) : null;
     deliveryNote.pdfUrl = `/api/deliverynote/pdf/${deliveryNote._id}`;
 
     await deliveryNote.save();
@@ -219,6 +238,31 @@ export const signDeliveryNote = async (req, res, next) => {
     const populated = await DeliveryNote.findById(deliveryNote._id)
       .populate(deliveryNotePopulate)
       .lean();
+
+    
+    emitToCompany(companyId, 'deliverynote:signed', {
+      _id: populated._id,
+      format: populated.format,
+      client: populated.client?.name,
+      project: populated.project?.name,
+      signedAt: populated.signedAt,
+      signedBy: populated.user?.email,
+      pdfUrl: populated.pdfUrl,
+    });
+
+    emitToCompany(companyId, 'deliverynote:updated', {
+      _id: populated._id,
+      format: populated.format,
+      description: populated.description,
+      workDate: populated.workDate,
+      client: populated.client?.name,
+      project: populated.project?.name,
+      signed: populated.signed,
+      signedAt: populated.signedAt,
+      pdfUrl: populated.pdfUrl,
+      createdAt: populated.createdAt,
+      createdBy: populated.user?.email,
+    });
 
     return res.status(200).json({
       status: 'success',
@@ -248,7 +292,7 @@ export const getDeliveryNotePdf = async (req, res, next) => {
       return next(AppError.notFound('Albarán no encontrado'));
     }
 
-    if (deliveryNote.signed && deliveryNote.pdfUrl && !deliveryNote.pdfUrl.startsWith('/api/')) {
+    if (deliveryNote.signed && isExternalPdfUrl(deliveryNote.pdfUrl)) {
       return res.status(200).json({
         status: 'success',
         data: {
@@ -260,10 +304,7 @@ export const getDeliveryNotePdf = async (req, res, next) => {
     const pdfBuffer = await generateDeliveryNotePdf(deliveryNote);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `inline; filename="delivery-note-${deliveryNote._id}.pdf"`
-    );
+    res.setHeader('Content-Disposition', `attachment; filename="delivery-note-${deliveryNote._id}.pdf"`);
 
     return res.send(pdfBuffer);
   } catch (error) {

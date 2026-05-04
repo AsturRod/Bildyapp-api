@@ -8,8 +8,12 @@ import sanitizeMiddleware from './middleware/sanitize.js';
 import { swaggerUi, swaggerSpec } from './config/swagger.js';
 import AppError from './utils/AppError.js';
 import mongoose from 'mongoose';
+import { Server } from 'socket.io';
+import authenticateSocket from './middleware/socket-auth.js';
+import { setSocketIO } from './services/socket.service.js';
 
 const app = express();
+let io = null;
 
 app.use(helmet());
 app.use(rateLimitMiddleware);
@@ -22,12 +26,18 @@ app.use(sanitizeMiddleware);
 
 app.use('/uploads', express.static('uploads'));
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// Swagger with Authorization support
+const swaggerOptions = {
+  swaggerOptions: {
+    persistAuthorization: true,
+  },
+};
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerOptions));
 app.get('/api-docs.json', (_req, res) => {
   res.json(swaggerSpec);
 });
 
-app.get('/health', (_req, res) => {
+const healthHandler = (_req, res) => {
   const dbState = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
 
   return res.status(200).json({
@@ -36,7 +46,10 @@ app.get('/health', (_req, res) => {
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
   });
-});
+};
+
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
 
 app.use('/api', routes);
 
@@ -45,5 +58,45 @@ app.use('/{*splat}', (req, _res, next) => {
 });
 
 app.use(errorHandler);
+
+/**
+ * Configura Socket.IO con autenticación JWT y rooms por company
+ * @param {http.Server} server - Servidor HTTP
+ * @returns {Server} Instancia de Socket.IO
+ */
+export const setupSocketIO = (server) => {
+  io = setSocketIO(new Server(server, {
+    cors: {
+      origin: process.env.CORS_ORIGIN || '*',
+      methods: ['GET', 'POST'],
+      credentials: true,
+    },
+  }));
+
+  // Middleware de autenticación Socket.IO
+  io.use(authenticateSocket);
+
+  io.on('connection', (socket) => {
+    console.log(`[Socket.IO] Cliente conectado: ${socket.id} (usuario: ${socket.userId}, empresa: ${socket.companyId})`);
+
+    // Unir al socket a un room por compañía
+    if (socket.companyId) {
+      socket.join(`company:${socket.companyId}`);
+      console.log(`[Socket.IO] Socket ${socket.id} unido al room company:${socket.companyId}`);
+    }
+
+    socket.on('disconnect', () => {
+      console.log(`[Socket.IO] Cliente desconectado: ${socket.id}`);
+    });
+  });
+
+  return io;
+};
+
+/**
+ * Obtiene la instancia de Socket.IO
+ * @returns {Server|null}
+ */
+export const getSocketIO = () => io;
 
 export default app;
