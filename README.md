@@ -135,6 +135,12 @@ La API estará disponible en http://localhost:3000
 
 Levanta la aplicación y MongoDB con Docker Compose:
 
+Primera vez (construir imágenes):
+```bash
+docker-compose up --build
+```
+Luego para iniciar:
+
 ```bash
 docker-compose up
 ```
