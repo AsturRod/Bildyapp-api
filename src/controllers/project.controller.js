@@ -263,7 +263,7 @@ export const getArchivedProjects = async (req, res, next) => {
         .limit(limit)
         .populate('user company client')
         .lean(),
-      Project.countDocuments(filter),
+      Project.countDocuments(filter).setOptions({ includeDeleted: true }),
     ]);
 
     const totalPages = Math.max(1, Math.ceil(totalItems / limit));

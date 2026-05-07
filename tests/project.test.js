@@ -96,6 +96,93 @@ describe('Project endpoints', () => {
     expect(hardDeleteRes.statusCode).toBe(200);
   });
 
+  it('returns the expected error codes for project lifecycle failures', async () => {
+    const session = await createVerifiedCompanySession({
+      email: 'project-errors@bildyapp.test',
+      companyCif: 'B90000203',
+    });
+
+    const clientRes = await request(app)
+      .post('/api/client')
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send(buildClientPayload('C'));
+
+    const projectRes = await request(app)
+      .post('/api/project')
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send(buildProjectPayload(clientRes.body.data._id, 'C'));
+
+    const missingProjectId = '64f000000000000000000002';
+
+    const duplicateRes = await request(app)
+      .post('/api/project')
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send(buildProjectPayload(clientRes.body.data._id, 'C'));
+
+    expect(duplicateRes.statusCode).toBe(409);
+
+    const invalidIdRes = await request(app)
+      .get('/api/project/invalid-id')
+      .set('Authorization', `Bearer ${session.accessToken}`);
+
+    expect(invalidIdRes.statusCode).toBe(400);
+
+    const updateMissingRes = await request(app)
+      .put(`/api/project/${missingProjectId}`)
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send({ notes: 'No existe' });
+
+    expect(updateMissingRes.statusCode).toBe(404);
+
+    const restoreActiveRes = await request(app)
+      .patch(`/api/project/${projectRes.body.data._id}/restore`)
+      .set('Authorization', `Bearer ${session.accessToken}`);
+
+    expect(restoreActiveRes.statusCode).toBe(404);
+  });
+
+  it('paginates archived projects with the correct totalItems', async () => {
+    const session = await createVerifiedCompanySession({
+      email: 'project-archived-pagination@bildyapp.test',
+      companyCif: 'B90000203',
+    });
+
+    const clientRes = await request(app)
+      .post('/api/client')
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send(buildClientPayload('C'));
+
+    const firstProjectRes = await request(app)
+      .post('/api/project')
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send(buildProjectPayload(clientRes.body.data._id, 'C1'));
+
+    const secondProjectRes = await request(app)
+      .post('/api/project')
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send(buildProjectPayload(clientRes.body.data._id, 'C2'));
+
+    const firstArchiveRes = await request(app)
+      .delete(`/api/project/${firstProjectRes.body.data._id}?soft=true`)
+      .set('Authorization', `Bearer ${session.accessToken}`);
+
+    const secondArchiveRes = await request(app)
+      .delete(`/api/project/${secondProjectRes.body.data._id}?soft=true`)
+      .set('Authorization', `Bearer ${session.accessToken}`);
+
+    expect(firstArchiveRes.statusCode).toBe(200);
+    expect(secondArchiveRes.statusCode).toBe(200);
+
+    const archivedPageRes = await request(app)
+      .get('/api/project/archived?page=1&limit=1')
+      .set('Authorization', `Bearer ${session.accessToken}`);
+
+    expect(archivedPageRes.statusCode).toBe(200);
+    expect(archivedPageRes.body.data).toHaveLength(1);
+    expect(archivedPageRes.body.pagination.totalItems).toBe(2);
+    expect(archivedPageRes.body.pagination.totalPages).toBe(2);
+  });
+
   it('rejects projects with a client from another company', async () => {
     const sessionA = await createVerifiedCompanySession({
       email: 'project-company-a@bildyapp.test',

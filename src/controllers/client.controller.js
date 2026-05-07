@@ -185,7 +185,7 @@ export const deleteClient = async (req, res, next) => {
       }
 
       if (existingClient.deleted) {
-        return next(AppError.badRequest('El cliente ya está archivado'));
+        return next(AppError.conflict('El cliente ya está archivado'));
       }
 
       const archivedClient = await Client.findOneAndUpdate(

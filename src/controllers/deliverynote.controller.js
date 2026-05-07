@@ -188,7 +188,7 @@ export const deleteDeliveryNote = async (req, res, next) => {
     }
 
     if (deliveryNote.signed) {
-      return next(AppError.badRequest('No se puede borrar un albarán firmado'));
+      return next(AppError.conflict('No se puede borrar un albarán firmado'));
     }
 
     await deliveryNote.deleteOne();

@@ -49,6 +49,47 @@ describe('Client endpoints', () => {
     expect(detailRes.body.data._id).toBe(createRes.body.data._id);
   });
 
+  it('returns the expected error codes for client lifecycle failures', async () => {
+    const session = await createVerifiedCompanySession({
+      email: 'client-errors@bildyapp.test',
+      companyCif: 'B90000103',
+    });
+
+    const createRes = await request(app)
+      .post('/api/client')
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send(buildClientPayload('D'));
+
+    const clientId = createRes.body.data._id;
+    const missingClientId = '64f000000000000000000001';
+
+    const invalidIdRes = await request(app)
+      .put('/api/client/invalid-id')
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send({ name: 'No importa' });
+
+    expect(invalidIdRes.statusCode).toBe(400);
+
+    const updateMissingRes = await request(app)
+      .put(`/api/client/${missingClientId}`)
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send({ name: 'Cliente inexistente' });
+
+    expect(updateMissingRes.statusCode).toBe(404);
+
+    const deleteMissingRes = await request(app)
+      .delete(`/api/client/${missingClientId}?soft=true`)
+      .set('Authorization', `Bearer ${session.accessToken}`);
+
+    expect(deleteMissingRes.statusCode).toBe(404);
+
+    const restoreActiveRes = await request(app)
+      .patch(`/api/client/${clientId}/restore`)
+      .set('Authorization', `Bearer ${session.accessToken}`);
+
+    expect(restoreActiveRes.statusCode).toBe(404);
+  });
+
   it('updates, archives, restores and deletes clients in the real API', async () => {
     const session = await createVerifiedCompanySession({
       email: 'client-update@bildyapp.test',
@@ -75,6 +116,12 @@ describe('Client endpoints', () => {
       .set('Authorization', `Bearer ${session.accessToken}`);
 
     expect(archiveRes.statusCode).toBe(200);
+
+    const archiveAgainRes = await request(app)
+      .delete(`/api/client/${clientId}?soft=true`)
+      .set('Authorization', `Bearer ${session.accessToken}`);
+
+    expect(archiveAgainRes.statusCode).toBe(409);
 
     const archivedRes = await request(app)
       .get('/api/client/archived')

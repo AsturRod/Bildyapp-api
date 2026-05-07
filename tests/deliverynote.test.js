@@ -179,7 +179,50 @@ describe('Delivery note endpoints', () => {
       .delete(`/api/deliverynote/${createdRes.body.data._id}`)
       .set('Authorization', `Bearer ${session.accessToken}`);
 
-    expect(deleteRes.statusCode).toBe(400);
+    expect(deleteRes.statusCode).toBe(409);
+  });
+
+  it('returns the expected error codes for delivery note lifecycle failures', async () => {
+    const session = await createVerifiedCompanySession({
+      email: 'delivery-errors@bildyapp.test',
+      companyCif: 'B90000305',
+    });
+
+    const clientRes = await request(app)
+      .post('/api/client')
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send(buildClientPayload('E'));
+
+    const projectRes = await request(app)
+      .post('/api/project')
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send(buildProjectPayload(clientRes.body.data._id, 'E'));
+
+    const createdRes = await request(app)
+      .post('/api/deliverynote')
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send(buildHoursPayload({ client: clientRes.body.data, project: projectRes.body.data, description: 'Errores' }));
+
+    const missingNoteId = '64f000000000000000000003';
+
+    const invalidIdRes = await request(app)
+      .get('/api/deliverynote/invalid-id')
+      .set('Authorization', `Bearer ${session.accessToken}`);
+
+    expect(invalidIdRes.statusCode).toBe(400);
+
+    const missingFileRes = await request(app)
+      .patch(`/api/deliverynote/${createdRes.body.data._id}/sign`)
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .field('description', 'Firma sin archivo');
+
+    expect(missingFileRes.statusCode).toBe(400);
+
+    const deleteMissingRes = await request(app)
+      .delete(`/api/deliverynote/${missingNoteId}`)
+      .set('Authorization', `Bearer ${session.accessToken}`);
+
+    expect(deleteMissingRes.statusCode).toBe(404);
   });
 
   it('rejects delivery notes when client and project belong to different companies', async () => {
